@@ -1,0 +1,377 @@
+<html>
+<head>
+  <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+  <title>Google Maps JavaScript API v3 Example: Center of Geodesic Polyline</title>
+  <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+  <script type="text/javascript" src="scripts/v3_epoly.js"></script>
+  <script type="text/javascript">
+
+    var EarthRadiusMeters = 6378137.0; // meters
+    /* Based the on the Latitude/longitude spherical geodesy formulae & scripts
+       at http://www.movable-type.co.uk/scripts/latlong.html
+       (c) Chris Veness 2002-2010
+    */
+    google.maps.LatLng.prototype.DestinationPoint = function (brng, dist) {
+      var R = EarthRadiusMeters; // earth's mean radius in meters
+      var brng = brng.toRad();
+      var lat1 = this.lat().toRad(), lon1 = this.lng().toRad();
+      var lat2 = Math.asin( Math.sin(lat1)*Math.cos(dist/R) +
+              Math.cos(lat1)*Math.sin(dist/R)*Math.cos(brng) );
+      var lon2 = lon1 + Math.atan2(Math.sin(brng)*Math.sin(dist/R)*Math.cos(lat1),
+              Math.cos(dist/R)-Math.sin(lat1)*Math.sin(lat2));
+
+      return new google.maps.LatLng(lat2.toDeg(), lon2.toDeg());
+    }
+
+    // === A function which returns the bearing between two LatLng in radians ===
+    // === If v1 is null, it returns the bearing between the first and last vertex ===
+    // === If v1 is present but v2 is null, returns the bearing from v1 to the next vertex ===
+    // === If either vertex is out of range, returns void ===
+    google.maps.LatLng.prototype.Bearing = function(otherLatLng) {
+      var from = this;
+      var to = otherLatLng;
+      if (from.equals(to)) {
+        return 0;
+      }
+      var lat1 = from.latRadians();
+      var lon1 = from.lngRadians();
+      var lat2 = to.latRadians();
+      var lon2 = to.lngRadians();
+      var angle = - Math.atan2( Math.sin( lon1 - lon2 ) * Math.cos( lat2 ), Math.cos( lat1 ) * Math.sin( lat2 ) - Math.sin( lat1 ) * Math.cos( lat2 ) * Math.cos( lon1 - lon2 ) );
+      if ( angle < 0.0 ) angle  += Math.PI * 2.0;
+      if ( angle > Math.PI ) angle -= Math.PI * 2.0;
+      return parseFloat(angle.toDeg());
+    }
+
+
+    function geodesicPolyline(start, end,points = 100) {
+    //  var points = 50;
+      bounds.extend(start);
+      bounds.extend(end);
+
+      var geodesicPoints = new Array();
+      var stratePoints = new Array();
+
+      with (Math) {
+        var lat1 = start.lat() * (PI/180);
+        var lon1 = start.lng() * (PI/180);
+        var lat2 = end.lat() * (PI/180);
+        var lon2 = end.lng() * (PI/180);
+
+        var d = 2*asin(sqrt( pow((sin((lat1-lat2)/2)),2) + cos(lat1)*cos(lat2)*pow((sin((lon1-lon2)/2)),2)));
+
+        for (var n = 0 ; n < points+1 ; n++ ) {
+          var f = (1/points) * n;
+          // f = f.toFixed(6);
+          var A = sin((1-f)*d)/sin(d)
+          var B = sin(f*d)/sin(d)
+          var x = A*cos(lat1)*cos(lon1) +  B*cos(lat2)*cos(lon2)
+          var y = A*cos(lat1)*sin(lon1) +  B*cos(lat2)*sin(lon2)
+          var z = A*sin(lat1)           +  B*sin(lat2)
+
+          var latN = atan2(z,sqrt(pow(x,2)+pow(y,2)))
+          var lonN = atan2(y,x)
+          var p = new google.maps.LatLng(latN/(PI/180), lonN/(PI/180));
+          geodesicPoints.push(p);
+          stratePoints.push(p)
+          bounds.extend(p);
+        }
+      }
+
+      return geodesicPoints;
+    }
+
+    function geoStratePolyline(start, end,points = 10) {
+      //  var points = 50;
+      bounds.extend(start);
+      bounds.extend(end);
+
+      var geodesicPoints = new Array();
+
+      with (Math) {
+        var lat1 = start.lat() * (PI/180);
+        var lon1 = start.lng() * (PI/180);
+        var lat2 = end.lat() * (PI/180);
+        var lon2 = end.lng() * (PI/180);
+
+        var d = 2*asin(sqrt( pow((sin((lat1-lat2)/2)),2) + cos(lat1)*cos(lat2)*pow((sin((lon1-lon2)/2)),2)));
+        console.log(d)
+
+
+        for (var n = 0 ; n < points+1 ; n++ ) {
+          var f = (1/points) * n;
+          // f = f.toFixed(6);
+          var A = sin((1-f)*d)/sin(d)
+          var B = sin(f*d)/sin(d)
+          var x = A*cos(lat1)*cos(lon1) +  B*cos(lat2)*cos(lon2)
+          var y = A*cos(lat1)*sin(lon1) +  B*cos(lat2)*sin(lon2)
+          var z = A*sin(lat1)           +  B*sin(lat2)
+
+          var latN = atan2(z,sqrt(pow(x,2)+pow(y,2)))
+          var lonN = atan2(y,x)
+          console.log(lonN)
+          var p = new google.maps.LatLng(latN/(PI/180), lonN/(PI/180));
+         // var p = new google.maps.LatLng(latN, lonN);
+          geodesicPoints.push(p);
+
+          bounds.extend(p);
+        }
+      }
+      console.log(geodesicPoints)
+       return geodesicPoints;
+    }
+
+    /**
+     * Extend the Number object to convert degrees to radians
+     *
+     * @return {Number} Bearing in radians
+     * @ignore
+     */
+    Number.prototype.toRad = function () {
+      return this * Math.PI / 180;
+    };
+
+    /**
+     * Extend the Number object to convert radians to degrees
+     *
+     * @return {Number} Bearing in degrees
+     * @ignore
+     */
+    Number.prototype.toDeg = function () {
+      return this * 180 / Math.PI;
+    };
+
+    /**
+     * Normalize a heading in degrees to between 0 and +360
+     *
+     * @return {Number} Return
+     * @ignore
+     */
+    Number.prototype.toBrng = function () {
+      return (this.toDeg() + 360) % 360;
+    };
+
+    var infowindow = new google.maps.InfoWindow(
+            {
+              size: new google.maps.Size(150,50)
+            });
+
+    var image = new google.maps.MarkerImage('http://labs.google.com/ridefinder/images/mm_20_red.png',
+            // This marker is 20 pixels wide by 32 pixels tall.
+            new google.maps.Size(12, 20),
+            // The origin for this image is 0,0.
+            new google.maps.Point(0,0),
+            // The anchor for this image is the base of the flagpole at 0,32.
+            new google.maps.Point(6, 20));
+    var shadow = new google.maps.MarkerImage('http://labs.google.com/ridefinder/images/mm_20_shadow.png',
+            // The shadow image is larger in the horizontal dimension
+            // while the position and offset are the same as for the main image.
+            new google.maps.Size(22, 20),
+            new google.maps.Point(0,0),
+            new google.maps.Point(6, 20));
+    // Shapes define the clickable region of the icon.
+    // The type defines an HTML &lt;area&gt; element 'poly' which
+    // traces out a polygon as a series of X,Y points. The final
+    // coordinate closes the poly by connecting to the first
+    // coordinate.
+    var shape = {
+      coord: [4,0,0,4,0,7,3,11,4,19,7,19,8,11,11,7,11,4,7,0],
+      type: 'poly'
+    };
+
+    function createSmallMarker(latlng, html) {
+      var contentString = html;
+      var marker = new google.maps.Marker({
+        position: latlng,
+        map: map,
+        icon: image,
+        zIndex: Math.round(latlng.lat()*-100000)<<5
+      });
+      bounds.extend(latlng);
+      google.maps.event.addListener(marker, 'click', function() {
+        infowindow.setContent(contentString);
+        infowindow.open(map,marker);
+      });
+      gmarkers.push(marker);
+      return marker;
+    }
+
+    function createMarker(latlng, html) {
+      var contentString = html;
+      var marker = new google.maps.Marker({
+        position: latlng,
+        map: map,
+        zIndex: Math.round(latlng.lat()*-100000)<<5
+      });
+      bounds.extend(latlng);
+      google.maps.event.addListener(marker, 'click', function() {
+        infowindow.setContent(contentString);
+        infowindow.open(map,marker);
+      });
+      return marker;
+    }
+
+
+    function drawArc(center, initialBearing, finalBearing, radius) {
+      var d2r = Math.PI / 180;   // degrees to radians
+      var r2d = 180 / Math.PI;   // radians to degrees
+
+      var points = 32;
+
+      // find the raidus in lat/lon
+      var rlat = (radius / EarthRadiusMeters) * r2d;
+      var rlng = rlat / Math.cos(center.lat() * d2r);
+
+      var extp = new Array();
+
+      var deltaBearing = (finalBearing - initialBearing)/points;
+      for (var i=0; (i < points+1); i++)
+      {
+        extp.push(center.DestinationPoint(initialBearing + i*deltaBearing, radius));
+        bounds.extend(extp[extp.length-1]);
+      }
+      return extp;
+    }
+
+    function myclick(index) {
+      google.maps.event.trigger(gmarkers[index],"click");
+    }
+
+
+    function drawCircle(point, radius) {
+      var d2r = Math.PI / 180;   // degrees to radians
+      var r2d = 180 / Math.PI;   // radians to degrees
+      var EarthRadiusMeters = 6378137.0; // meters
+      var earthsradius = 3963; // 3963 is the radius of the earth in miles
+
+      var points = 32;
+
+      // find the raidus in lat/lon
+      var rlat = (radius / EarthRadiusMeters) * r2d;
+      var rlng = rlat / Math.cos(point.lat() * d2r);
+
+
+      var extp = new Array();
+      for (var i=0; i < points+1; i++) // one extra here makes sure we connect the
+      {
+        var theta = Math.PI * (i / (points/2));
+        ey = point.lng() + (rlng * Math.cos(theta)); // center a + radius x * cos(theta)
+        ex = point.lat() + (rlat * Math.sin(theta)); // center b + radius y * sin(theta)
+        extp.push(new google.maps.LatLng(ex, ey));
+        bounds.extend(extp[extp.length-1]);
+      }
+      // alert(extp.length);
+      return extp;
+    }
+
+    var map = null;
+    var bounds = null;
+    var gmarkers = [];
+
+    function initialize() {
+      var myOptions = {
+        zoom: 10,
+        center: new google.maps.LatLng(-33.9, 151.2),
+        mapTypeControl: true,
+        mapTypeControlOptions: {style: google.maps.MapTypeControlStyle.DROPDOWN_MENU},
+        navigationControl: true,
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+      }
+      map = new google.maps.Map(document.getElementById("map_canvas"),
+              myOptions);
+
+      bounds = new google.maps.LatLngBounds();
+
+      google.maps.event.addListener(map, 'click', function() {
+        infowindow.close();
+      });
+
+      var startPoint = new google.maps.LatLng(0.0,0.0);
+      bounds.extend(startPoint);
+
+      var endPoint = new google.maps.LatLng(42.00547,-122.61535);
+      bounds.extend(endPoint);
+
+      var startMarker = createMarker(startPoint,"start: "+startPoint.toUrlValue(6)+"<br>Bearing: "+startPoint.Bearing(endPoint)+"<br><a href='javascript:map.setCenter(new google.maps.LatLng("+startPoint.toUrlValue(6)+"));map.setZoom(20);'>zoom in</a> - <a href='javascript:map.fitBounds(bounds);'>zoom out</a>");
+
+      var endMarker = createMarker(endPoint,"end: "+endPoint.toUrlValue(6)+"<br>Bearing: "+endPoint.Bearing(startPoint)+"<br><a href='javascript:map.setCenter(new google.maps.LatLng("+endPoint.toUrlValue(6)+"));map.setZoom(20);'>zoom in</a> - <a href='javascript:map.fitBounds(bounds);'>zoom out</a>");
+
+      var normalPolyline = new google.maps.Polyline({
+        path: [startPoint, endPoint],
+        strokeColor: "#0000FF",
+        strokeOpacity: 0.5,
+        strokeWeight: 2,
+        map: map
+      });
+
+      var geodesicPoly = new google.maps.Polyline({
+        path: [startPoint, endPoint],
+        strokeColor: "#00FF00",
+        strokeOpacity: 0.5,
+        strokeWeight: 2,
+        geodesic: true,
+        map: map
+      });
+
+      var normalCenterPoint = normalPolyline.GetPointAtDistance(startPoint.distanceFrom(endPoint)/2);
+      createMarker(normalCenterPoint, "center of normal polyline<br><a href='javascript:map.setCenter(new google.maps.LatLng("+normalCenterPoint.toUrlValue(6)+"));map.setZoom(20);'>zoom in</a> - <a href='javascript:map.fitBounds(bounds);'>zoom out</a>");
+
+    //  var calcGeodesic = geodesicPolyline(startPoint, endPoint);
+      var calcGeodesic = geoStratePolyline(startPoint, endPoint);
+
+      for (var i=0;i<calcGeodesic.length;i++) {
+        var html ="point "+i+"<br><a href='javascript:map.setCenter(new google.maps.LatLng("+calcGeodesic[i].toUrlValue(6)+"));map.setZoom(20);'>zoom in</a>";
+        if (i>1){
+          html += " - <a href='javascript:myclick("+(i-1)+");'>prev</a>";
+        }
+        if (i < calcGeodesic.length-1) {
+          html +=" - <a href='javascript:myclick("+(i+1)+");'>next</a>";
+        }
+        html +=" - <a href='javascript:map.fitBounds(bounds);'>zoom out</a>";
+        createSmallMarker(calcGeodesic[i], html);
+
+      }
+
+      var calcGeodesicPolyline =new google.maps.Polyline({
+        path: calcGeodesic,
+        strokeColor: "#FF0000",
+        strokeOpacity: 0.5,
+        strokeWeight: 2,
+        geodesic: true,
+        map: map
+      });
+
+      var geodesicCenterPoint = calcGeodesicPolyline.GetPointAtDistance(startPoint.distanceFrom(endPoint)/2);
+      createMarker(geodesicCenterPoint, "center of geodesic polyline<br><a href='javascript:map.setCenter(new google.maps.LatLng("+geodesicCenterPoint.toUrlValue(6)+"));map.setZoom(20);'>zoom in</a> - <a href='javascript:map.fitBounds(bounds);'>zoom out</a>");
+
+      google.maps.event.addListener(map, 'projection_changed', function() {
+        var projection = map.getProjection();
+        if (!projection) return;
+        // Project
+        var startLatLng = startMarker.getPosition();
+        var endLatLng = endMarker.getPosition();
+        var startPoint = projection.fromLatLngToPoint(startLatLng);
+        var endPoint = projection.fromLatLngToPoint(endLatLng);
+        // Average
+        var midPoint = new google.maps.Point(
+                (startPoint.x + endPoint.x) / 2,
+                (startPoint.y + endPoint.y) / 2);
+        // Unproject
+        var midLatLng = projection.fromPointToLatLng(midPoint);
+        var midMarker = createMarker(midLatLng, "midMarker<br><a href='javascript:map.setCenter(new google.maps.LatLng("+midLatLng.toUrlValue(6)+"));map.setZoom(20);'>zoom in</a> - <a href='javascript:map.fitBounds(bounds);'>zoom out</a>");
+
+      });
+
+      map.fitBounds(bounds);
+
+
+    }
+
+  </script>
+</head>
+<body style="margin:0px; padding:0px;" onload="initialize()">
+<div id="map_canvas" style="width:100%; height:100%"></div>
+
+</body>
+</html>
